@@ -84,6 +84,15 @@ const K_EVENTS = 'parallel-life:events';
 /** В браузерном режиме полная история ограничена, чтобы не переполнить localStorage. */
 export const BROWSER_EVENTS_CAP = 3000;
 
+/** Запись в localStorage; в приватном режиме или при запрете хранилища — без падения. */
+function writeKey(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* хранилище недоступно — мир живёт до закрытия вкладки */
+  }
+}
+
 function readJson<T>(key: string, fallback: T): T {
   try {
     const raw = localStorage.getItem(key);
@@ -102,12 +111,12 @@ export class BrowserStorage implements StorageAdapter {
     return readJson<unknown | null>(K_WORLD, null);
   }
   async saveWorld(snapshot: string, events: WorldEvent[], ideas: Idea[]): Promise<void> {
-    localStorage.setItem(K_WORLD, snapshot);
+    writeKey(K_WORLD, snapshot);
     if (events.length) {
       const all = readJson<WorldEvent[]>(K_EVENTS, []);
       const known = new Set(all.map((e) => e.id));
       for (const e of events) if (!known.has(e.id)) all.push(e);
-      localStorage.setItem(K_EVENTS, JSON.stringify(all.slice(-BROWSER_EVENTS_CAP)));
+      writeKey(K_EVENTS, JSON.stringify(all.slice(-BROWSER_EVENTS_CAP)));
     }
     for (const i of ideas) await this.saveIdea(i);
   }
@@ -119,7 +128,7 @@ export class BrowserStorage implements StorageAdapter {
     const i = all.findIndex((x) => x.id === idea.id);
     if (i >= 0) all[i] = idea;
     else all.push(idea);
-    localStorage.setItem(K_IDEAS, JSON.stringify(all));
+    writeKey(K_IDEAS, JSON.stringify(all));
   }
   async loadEvents(_worldId: string, opts: { characterId?: string; beforeSeq?: number; limit?: number } = {}): Promise<WorldEvent[]> {
     let all = readJson<WorldEvent[]>(K_EVENTS, []);
@@ -128,8 +137,12 @@ export class BrowserStorage implements StorageAdapter {
     return all.reverse().slice(0, opts.limit ?? 200);
   }
   async resetWorld(): Promise<void> {
-    localStorage.removeItem(K_WORLD);
-    localStorage.removeItem(K_EVENTS);
+    try {
+      localStorage.removeItem(K_WORLD);
+      localStorage.removeItem(K_EVENTS);
+    } catch {
+      /* недоступно */
+    }
   }
   async exportSave(): Promise<SaveFile | null> {
     const snapshot = await this.loadWorld();
@@ -138,8 +151,8 @@ export class BrowserStorage implements StorageAdapter {
   }
   async importSave(file: SaveFile): Promise<void> {
     await this.resetWorld();
-    localStorage.setItem(K_WORLD, JSON.stringify(file.snapshot));
-    localStorage.setItem(K_EVENTS, JSON.stringify((file.events ?? []).slice(-BROWSER_EVENTS_CAP)));
+    writeKey(K_WORLD, JSON.stringify(file.snapshot));
+    writeKey(K_EVENTS, JSON.stringify((file.events ?? []).slice(-BROWSER_EVENTS_CAP)));
     for (const i of file.ideas ?? []) await this.saveIdea(i);
   }
 }
