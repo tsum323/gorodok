@@ -8,7 +8,7 @@ import { considerQuitting } from './career';
 import { considerNpcProject, considerProjectFromIdea, activeOwnedProject, activeProjects } from './projects';
 import { updateSatisfaction } from './needs';
 import { emit } from './events';
-import { clamp, nextId } from './util';
+import { clamp, money, nextId } from './util';
 import { dayOf, hourOf } from './time';
 import { relationsOf } from './social';
 
@@ -177,7 +177,7 @@ export function updateGoals(world: World, c: Character): void {
     addGoal(world, c, 'get_job', 'Найти работу', runway < 2 ? 1 : 0.7, 'Нет постоянного дохода');
   }
   if (c.debt > 0 && !hasGoal(c, 'pay_debt')) {
-    addGoal(world, c, 'pay_debt', 'Закрыть долги', 0.7, `Долг ${Math.round(c.debt)} ₵ давит`);
+    addGoal(world, c, 'pay_debt', 'Закрыть долги', 0.7, `Долг ${money(c.debt)} давит`);
   }
   if (c.job && c.traits.ambition > 0.6 && c.job.performance > 65 && !hasGoal(c, 'promotion') && ['intern', 'specialist', 'senior'].includes(c.job.rank)) {
     if ((c.counters.lastPromotionGoal ?? -999) < world.time - 24 * 20) {

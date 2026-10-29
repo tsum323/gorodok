@@ -40,7 +40,7 @@ export const EVENT_TYPES: Record<EventType, EventTypeInfo> = {
   agreement_broken: { label: 'Нарушена договорённость', icon: '✂', feed: true, tone: 'bad' },
   idea: { label: 'Новая идея', icon: '💡', feed: true, tone: 'idea' },
   goal_changed: { label: 'Смена цели', icon: '🎯', feed: true, tone: 'neutral' },
-  financial: { label: 'Финансы', icon: '₵', feed: true, tone: 'neutral' },
+  financial: { label: 'Финансы', icon: '₽', feed: true, tone: 'neutral' },
   skill_up: { label: 'Рост навыка', icon: '📚', feed: false, tone: 'good' },
   random: { label: 'Случай', icon: '🎲', feed: true, tone: 'neutral' },
   business: { label: 'Бизнес', icon: '🏪', feed: true, tone: 'neutral' },

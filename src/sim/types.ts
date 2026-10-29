@@ -87,7 +87,7 @@ export interface Job {
   orgId: OrgId;
   title: string;
   rank: Rank;
-  /** Зарплата за месяц (условные «кредиты»). */
+  /** Зарплата за месяц, в рублях. */
   salary: number;
   /** Начало и конец рабочего дня (часы). */
   startHour: number;

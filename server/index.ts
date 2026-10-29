@@ -18,6 +18,19 @@ const DB_PATH = resolve(ROOT, process.env.PL_DB_PATH ?? 'data/parallel-life.db')
 
 const store = new Store(DB_PATH);
 
+// По умолчанию каждый запуск сервера начинает мир с нуля (архив идей сохраняется).
+// Продолжить прошлый мир: флаг --continue или PL_CONTINUE=1.
+const CONTINUE = process.argv.includes('--continue') || process.env.PL_CONTINUE === '1';
+/** Миры, сброшенные при запуске: открытая со старых времён вкладка не должна их «воскресить». */
+const retiredWorldIds = new Set<string>();
+if (!CONTINUE) {
+  const prev = store.loadWorld();
+  if (prev) {
+    retiredWorldIds.add(prev.worldId);
+    store.resetWorld();
+  }
+}
+
 async function readBody(req: IncomingMessage, limit = 50 * 1024 * 1024): Promise<string> {
   const chunks: Buffer[] = [];
   let size = 0;
@@ -60,6 +73,10 @@ async function api(req: IncomingMessage, res: ServerResponse, url: URL): Promise
   if (path === '/api/world' && method === 'PUT') {
     const body = JSON.parse(await readBody(req)) as { snapshot: string; events?: WorldEvent[]; ideas?: Idea[] };
     if (typeof body.snapshot !== 'string') throw new HttpError(400, 'Нет снимка мира');
+    const worldId = (JSON.parse(body.snapshot) as { worldId?: string }).worldId;
+    if (worldId && retiredWorldIds.has(worldId)) {
+      throw new HttpError(409, 'Сервер перезапущен, и мир начат заново — обновите страницу');
+    }
     store.saveWorld(body.snapshot, body.events ?? [], body.ideas ?? []);
     return json(res, 200, { ok: true });
   }
@@ -103,6 +120,8 @@ async function api(req: IncomingMessage, res: ServerResponse, url: URL): Promise
   }
   if (path === '/api/import' && method === 'POST') {
     const file = JSON.parse(await readBody(req)) as SaveFile;
+    const importedId = (file?.snapshot as { worldId?: string } | undefined)?.worldId;
+    if (importedId) retiredWorldIds.delete(importedId);
     store.importSave(file);
     return json(res, 200, { ok: true });
   }
@@ -159,7 +178,8 @@ async function main(): Promise<void> {
 
   server.listen(PORT, HOST, () => {
     console.log(`\n  «Параллельная жизнь» запущена: http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`);
-    console.log(`  Режим: ${DEV ? 'разработка (Vite)' : 'production (dist/)'}; база: ${DB_PATH}\n`);
+    console.log(`  Режим: ${DEV ? 'разработка (Vite)' : 'production (dist/)'}; база: ${DB_PATH}`);
+    console.log(`  Мир: ${CONTINUE ? 'продолжается с прошлого запуска' : 'начат с нуля (архив идей сохранён); продолжить прошлый — флаг --continue'}\n`);
   });
 
   const shutdown = () => {

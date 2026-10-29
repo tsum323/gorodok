@@ -21,5 +21,5 @@ export function pushCapped<T>(arr: T[], item: T, cap: number): void {
 }
 
 export function money(v: number): string {
-  return `${Math.round(v).toLocaleString('ru-RU')} ₵`;
+  return `${Math.round(v).toLocaleString('ru-RU')} ₽`;
 }

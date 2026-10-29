@@ -12,6 +12,8 @@
     "build": "tsc --noEmit -p . && vite build",
     "start": "npm run build && tsx server/index.ts",
     "serve": "tsx server/index.ts",
+    "dev:continue": "tsx server/index.ts --dev --continue",
+    "start:continue": "npm run build && tsx server/index.ts --continue",
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p .",
     "simulate": "tsx scripts/simulate.ts"
