@@ -5,6 +5,7 @@ import { formatGameTime } from '../sim/time';
 import type { WorldEvent } from '../sim/types';
 import { Modal } from './common';
 import { Portrait } from './Sprite';
+import { KeyBadge } from './EventFeed';
 
 export function EventModal({ event, onClose, onSelect, onArchive }: { event: WorldEvent; onClose: () => void; onSelect: (id: string) => void; onArchive: (ideaId?: string) => void }) {
   const { game } = useGame();
@@ -21,6 +22,7 @@ export function EventModal({ event, onClose, onSelect, onArchive }: { event: Wor
       }
       onClose={onClose}
     >
+      {event.key && <KeyBadge tone={event.key.tone} label={`Ключевой момент: ${event.key.label}`} />}
       <p className="event-summary">{event.summary}</p>
       <dl className="kv">
         <dt>Когда</dt>

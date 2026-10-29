@@ -51,7 +51,7 @@ export const IDEAS_PER_WEEK = 2;
 export const MAX_IDEAS_PER_PROBLEM = 2;
 
 function existingSignatures(world: World): Set<string> {
-  return new Set(Object.values(world.ideas).map((i) => i.signature));
+  return new Set([...Object.values(world.ideas).map((i) => i.signature), ...(world.deletedIdeaSignatures ?? [])]);
 }
 
 function ideasForProblem(world: World, problemId: string): number {
@@ -283,6 +283,7 @@ export function tryGenerateIdea(world: World, author: Character, trigger: IdeaTr
   for (const i of Object.values(world.ideas)) {
     if (i.signature === draft.signature || norm(i.title) === norm(draft.title)) return null;
   }
+  if (world.deletedIdeaSignatures?.includes(draft.signature)) return null;
 
   const now = (opts.now ?? (() => new Date().toISOString()))();
   const idea: Idea = {
@@ -345,6 +346,8 @@ export function tryGenerateIdea(world: World, author: Character, trigger: IdeaTr
     importance: 0.75,
     relatedIds: [idea.id, ...draft.relatedEventIds.slice(0, 3)],
     noHistory: true,
+    // Сильная идея — поворотный момент для автора.
+    ...(idea.avatarScore >= 8 ? { key: { tone: 'turn' as const, label: 'Сильная идея' }, keyFor: [author.id] } : {}),
   });
   addHistory(author, { time: world.time, text: `Новая идея: «${idea.title}»`, eventId: ev.id, kind: 'milestone' });
   remember(world, author, 'decision', `Придумал(а) идею «${idea.title}» (${idea.avatarScore}/10)`, 0.5 + idea.avatarScore / 20, [idea.id]);

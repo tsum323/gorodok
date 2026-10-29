@@ -85,7 +85,7 @@ export const RANDOM_EVENTS: RandomEventDef[] = [
   },
   {
     id: 'viral',
-    chance: 0.04,
+    chance: 0.025,
     scope: 'character',
     condition: (w, c) => !!c && c.projectIds.some((id) => w.projects[id]?.status === 'launched' && w.projects[id].ownerId === c.id),
     apply(world, c) {
@@ -93,6 +93,9 @@ export const RANDOM_EVENTS: RandomEventDef[] = [
       const p = c.projectIds.map((id) => world.projects[id]).find((x) => x?.status === 'launched' && x.ownerId === c!.id)!;
       const added = 10 + Math.round(p.quality / 4);
       p.users += added;
+      // Ключевой момент — только первый «взрыв» популярности проекта.
+      const first = !p.history.some((h) => h.text === 'Вирусный рост');
+      if (first) p.history.push({ time: world.time, text: 'Вирусный рост' });
       c.reputation = clamp(c.reputation + 3, 0, 100);
       emit(world, {
         type: 'random',
@@ -100,7 +103,8 @@ export const RANDOM_EVENTS: RandomEventDef[] = [
         summary: `О проекте «${p.name}» написали в популярном канале`,
         cause: 'Кто-то из пользователей поделился проектом',
         changes: [`+${added} пользователей`],
-        importance: 0.55,
+        importance: first ? 0.65 : 0.45,
+        ...(first ? { key: { tone: 'up' as const, label: 'Вирусный рост' } } : {}),
         relatedIds: [p.id],
       });
     },

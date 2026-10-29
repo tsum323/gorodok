@@ -176,6 +176,21 @@ export interface Memory {
   relatedIds: string[];
 }
 
+/** Ключевой (переломный) момент: взлёт, падение или поворот судьбы. */
+export type KeyTone = 'up' | 'down' | 'turn';
+
+export interface KeyMoment {
+  tone: KeyTone;
+  /** Короткая подпись: «Начал проект», «Залез в долги»… */
+  label: string;
+}
+
+export interface KeyMomentEntry extends KeyMoment {
+  time: GameTime;
+  text: string;
+  eventId: string;
+}
+
 export interface HistoryEntry {
   time: GameTime;
   text: string;
@@ -235,6 +250,8 @@ export interface Character {
   activity: Activity;
   memory: Memory[];
   history: HistoryEntry[];
+  /** Переломные моменты жизни (хранятся отдельно от общей истории, чтобы не теряться). */
+  keyMoments: KeyMomentEntry[];
   decisions: Decision[];
   projectIds: string[];
   /** Час, в который персонаж пересматривает свои планы (у каждого свой). */
@@ -403,6 +420,8 @@ export interface WorldEvent {
   changes: string[];
   importance: number; // 0..1
   relatedIds: string[];
+  /** Если задано — событие является ключевым моментом. */
+  key?: KeyMoment;
   /** Короткий диалог, если событие — разговор. */
   dialogue?: { speakerId: CharacterId; text: string }[];
 }
@@ -419,7 +438,7 @@ export interface Observation {
   used: boolean;
 }
 
-export type IdeaStatus = 'new' | 'interesting' | 'review' | 'in_progress' | 'postponed' | 'rejected';
+export type IdeaStatus = 'new' | 'viewed' | 'interesting' | 'review' | 'in_progress' | 'postponed' | 'rejected';
 
 export interface Idea {
   id: string;
@@ -497,6 +516,8 @@ export interface World {
    * хранятся в отдельной таблице архива и подмешиваются при загрузке.
    */
   ideas: Record<string, Idea>;
+  /** Сигнатуры идей, удалённых пользователем: такие идеи не придумываются повторно. */
+  deletedIdeaSignatures: string[];
   /** Технологии, о которых в мире уже известно (открываются новостями). */
   technologies: string[];
   counters: Record<string, number>;

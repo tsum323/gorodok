@@ -11,6 +11,7 @@ export function Archive({ onClose, initialId, onSelect }: { onClose: () => void;
   const [openId, setOpenId] = useState<string | undefined>(initialId);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [toast, setToast] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const list = useMemo(() => filterIdeas(all, filter), [all, filter]);
   const open = all.find((i) => i.id === openId);
 
@@ -27,6 +28,23 @@ export function Archive({ onClose, initialId, onSelect }: { onClose: () => void;
     setSelected(s);
   };
   const exportSet = (): Idea[] => (selected.size ? list.filter((i) => selected.has(i.id)) : list);
+  const selectedIds = list.filter((i) => selected.has(i.id)).map((i) => i.id);
+  const allVisibleSelected = list.length > 0 && selectedIds.length === list.length;
+  const toggleAll = () => setSelected(allVisibleSelected ? new Set() : new Set(list.map((i) => i.id)));
+  const allFavorite = selectedIds.length > 0 && selectedIds.every((id) => all.find((i) => i.id === id)?.favorite);
+
+  const bulkFavorite = async () => {
+    await game.updateIdeas(selectedIds, { favorite: !allFavorite });
+    setToast(allFavorite ? `Убрано из избранного: ${selectedIds.length}` : `В избранное: ${selectedIds.length}`);
+  };
+  const bulkDelete = async () => {
+    const n = selectedIds.length;
+    if (openId && selected.has(openId)) setOpenId(undefined);
+    await game.deleteIdeas(selectedIds);
+    setSelected(new Set());
+    setConfirmDelete(false);
+    setToast(`Удалено идей: ${n}`);
+  };
   const stamp = new Date().toISOString().slice(0, 10);
 
   return (
@@ -63,19 +81,44 @@ export function Archive({ onClose, initialId, onSelect }: { onClose: () => void;
               </label>
             </div>
             <div className="filter-row export-row">
-              <span className="small muted">{selected.size ? `Выбрано: ${selected.size}` : `Показано: ${list.length}`}</span>
+              <label className="small row select-all">
+                <input type="checkbox" checked={allVisibleSelected} onChange={toggleAll} disabled={!list.length} /> Выбрать все
+              </label>
+              <span className="small muted">{selectedIds.length ? `Выбрано: ${selectedIds.length}` : `Показано: ${list.length}`}</span>
               <button className="btn small" onClick={() => download(`ideas-${stamp}.md`, ideasToMarkdown(exportSet()), 'text/markdown')} disabled={!list.length}>
                 ⬇ Markdown
               </button>
               <button className="btn small" onClick={() => download(`ideas-${stamp}.json`, ideasToJson(exportSet()), 'application/json')} disabled={!list.length}>
                 ⬇ JSON
               </button>
-              {selected.size > 0 && (
-                <button className="btn small ghost" onClick={() => setSelected(new Set())}>
-                  Снять выбор
-                </button>
-              )}
             </div>
+            {selectedIds.length > 0 && (
+              <div className="bulk-bar" role="toolbar" aria-label="Действия с выбранными идеями">
+                {!confirmDelete ? (
+                  <>
+                    <button className="btn small" onClick={() => void bulkFavorite()}>
+                      {allFavorite ? '☆ Убрать из избранного' : '★ В избранное'}
+                    </button>
+                    <button className="btn small danger" onClick={() => setConfirmDelete(true)}>
+                      🗑 Удалить
+                    </button>
+                    <button className="btn small ghost" onClick={() => setSelected(new Set())}>
+                      Снять выбор
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <span className="small warn-text">Удалить {selectedIds.length} идей навсегда?</span>
+                    <button className="btn small danger" onClick={() => void bulkDelete()}>
+                      Да, удалить
+                    </button>
+                    <button className="btn small ghost" onClick={() => setConfirmDelete(false)}>
+                      Отмена
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
           </div>
           <ul className="idea-list">
             {list.length === 0 && (
@@ -84,10 +127,11 @@ export function Archive({ onClose, initialId, onSelect }: { onClose: () => void;
               </li>
             )}
             {list.map((i) => (
-              <li key={i.id} className={`idea-row${openId === i.id ? ' open' : ''}`}>
-                <input type="checkbox" checked={selected.has(i.id)} onChange={() => toggle(i.id)} aria-label="Выбрать для экспорта" />
+              <li key={i.id} className={`idea-row${openId === i.id ? ' open' : ''}${i.status === 'new' ? ' unseen' : ''}${selected.has(i.id) ? ' checked' : ''}`}>
+                <input type="checkbox" checked={selected.has(i.id)} onChange={() => toggle(i.id)} aria-label="Выбрать идею" />
                 <button className="idea-main" onClick={() => setOpenId(i.id)}>
                   <span className="idea-title">
+                    {i.status === 'new' && <span className="new-dot" title="Ещё не просмотрена" />}
                     {i.favorite && <span className="fav">★ </span>}
                     {i.title}
                   </span>
@@ -116,6 +160,10 @@ function IdeaCard({ idea, onToast, onSelect }: { idea: Idea; onToast: (s: string
   useEffect(() => setNotes(idea.userNotes), [idea.id, idea.userNotes]);
   const dirty = notes !== idea.userNotes;
   const update = (patch: Parameters<typeof game.updateIdea>[1]) => void game.updateIdea(idea.id, patch);
+  // Открытая новая идея сама становится «Просмотрена»; дальше статус меняет пользователь.
+  useEffect(() => {
+    if (idea.status === 'new') void game.updateIdea(idea.id, { status: 'viewed' });
+  }, [idea.id, idea.status, game]);
 
   return (
     <article className="idea-card">

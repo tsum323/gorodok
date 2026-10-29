@@ -5,6 +5,7 @@ import type { Idea, IdeaStatus } from '../sim/types';
 
 export const STATUS_LABELS: Record<IdeaStatus, string> = {
   new: 'Новая',
+  viewed: 'Просмотрена',
   interesting: 'Интересная',
   review: 'На проверке',
   in_progress: 'В реализации',
@@ -12,7 +13,7 @@ export const STATUS_LABELS: Record<IdeaStatus, string> = {
   rejected: 'Отклонена',
 };
 
-export const STATUS_ORDER: IdeaStatus[] = ['new', 'interesting', 'review', 'in_progress', 'postponed', 'rejected'];
+export const STATUS_ORDER: IdeaStatus[] = ['new', 'viewed', 'interesting', 'review', 'in_progress', 'postponed', 'rejected'];
 
 export type IdeaSort = 'newest' | 'oldest' | 'score' | 'rating';
 

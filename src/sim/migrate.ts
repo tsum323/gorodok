@@ -4,14 +4,18 @@ import type { World } from './types';
 // предыдущей версии к следующей. Снимки старых версий загружаются
 // последовательным применением шагов.
 
-export const CURRENT_WORLD_VERSION = 1;
+export const CURRENT_WORLD_VERSION = 2;
 
 type Step = (w: Record<string, unknown>) => Record<string, unknown>;
 
 /** MIGRATIONS[n] переводит версию n в n+1. */
 const MIGRATIONS: Record<number, Step> = {
-  // Пример будущего шага:
-  // 1: (w) => ({ ...w, newField: defaultValue, version: 2 }),
+  // 1 → 2: ключевые моменты персонажей и список удалённых идей.
+  1: (w) => {
+    const characters = w.characters as Record<string, Record<string, unknown>>;
+    for (const c of Object.values(characters)) c.keyMoments ??= [];
+    return { ...w, deletedIdeaSignatures: [], version: 2 };
+  },
 };
 
 export function migrateWorld(raw: unknown): World {

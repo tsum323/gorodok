@@ -90,6 +90,16 @@ describe('SQLite-хранилище', () => {
     s.close();
   });
 
+  it('пользователь может удалить идеи', () => {
+    const s = new Store(tempDb());
+    const w = worldWithIdea();
+    const ids = Object.keys(w.ideas);
+    s.saveWorld(serializeWorld(w), [], Object.values(w.ideas));
+    expect(s.deleteIdeas([...ids, 'нет_такой'])).toBe(ids.length);
+    expect(s.listIdeas()).toHaveLength(0);
+    s.close();
+  });
+
   it('экспорт и импорт сохранения', () => {
     const a = new Store(tempDb());
     const w = worldWithIdea();
@@ -135,6 +145,9 @@ class MemoryStorage implements StorageAdapter {
   }
   async saveIdea(i: Idea) {
     this.ideas.set(i.id, structuredClone(i));
+  }
+  async deleteIdeas(ids: string[]) {
+    for (const id of ids) this.ideas.delete(id);
   }
   async loadEvents(_w: string, o: { characterId?: string } = {}) {
     return this.events.filter((e) => !o.characterId || e.participants.includes(o.characterId));
@@ -189,5 +202,49 @@ describe('контроллер игры', () => {
     expect(g.pastIdeas).toHaveLength(1);
     await g.updateIdea(g.pastIdeas[0].id, { status: 'review', userNotes: 'заметка' });
     expect((await storage.loadIdeas())[0].userNotes).toBe('заметка');
+  });
+});
+
+describe('массовые действия с идеями', () => {
+  async function gameWithIdeas(n: number) {
+    const storage = new MemoryStorage();
+    const g = new GameController(storage);
+    await g.init();
+    g.stop();
+    const av = g.world.characters.player_avatar;
+    const problems = ['support_repeat', 'manual_reports', 'cafe_demand', 'freelance_invoicing'];
+    for (let i = 0; i < n; i++) {
+      observe(g.world, av, problems[i], `наблюдение ${i}`);
+      tryGenerateIdea(g.world, av, 'reflection', { ignoreCooldown: true });
+    }
+    g.step();
+    await g.save();
+    return { g, storage };
+  }
+
+  it('выбранные идеи добавляются в избранное разом', async () => {
+    const { g, storage } = await gameWithIdeas(3);
+    const ids = Object.keys(g.world.ideas).slice(0, 2);
+    await g.updateIdeas(ids, { favorite: true });
+    const saved = await storage.loadIdeas();
+    expect(saved.filter((i) => i.favorite).map((i) => i.id).sort()).toEqual(ids.sort());
+  });
+
+  it('удалённая идея исчезает из архива и не придумывается снова', async () => {
+    const { g, storage } = await gameWithIdeas(2);
+    const [id] = Object.keys(g.world.ideas);
+    const sig = g.world.ideas[id].signature;
+    await g.deleteIdeas([id]);
+    expect(g.world.ideas[id]).toBeUndefined();
+    expect((await storage.loadIdeas()).some((i) => i.id === id)).toBe(false);
+    expect(g.world.deletedIdeaSignatures).toContain(sig);
+    // То же наблюдение больше не даёт ту же идею.
+    const av = g.world.characters.player_avatar;
+    for (let i = 0; i < 10; i++) {
+      observe(g.world, av, sig.split(':')[0], `повтор ${i}`);
+      g.world.time += 100;
+      tryGenerateIdea(g.world, av, 'reflection', { ignoreCooldown: true });
+    }
+    expect(Object.values(g.world.ideas).some((i) => i.signature === sig)).toBe(false);
   });
 });

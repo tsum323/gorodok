@@ -156,6 +156,8 @@ export function hire(world: World, c: Character, org: Org, op: Opening): void {
     cause: `Отклик на вакансию; навык «${skillName(op.skill)}» ${Math.round(c.skills[op.skill])}/100`,
     changes: [`Зарплата: ${money(op.salary)} в месяц`, prev ? `Ушёл(ла) с прежней работы` : 'Появился стабильный доход'],
     importance: 0.7,
+    key: { tone: prev ? 'turn' : 'up', label: prev ? 'Сменил(а) работу' : 'Нашёл(ла) работу' },
+    keyFor: [c.id],
     relatedIds: [org.id],
   });
   org.history.push({ time: world.time, text: `Нанят(а) ${c.name} — ${op.title}` });
@@ -193,6 +195,8 @@ export function leaveJob(world: World, c: Character, how: 'quit' | 'fired', why:
     cause: why,
     changes: ['Потерян постоянный доход', 'Открылась вакансия'],
     importance: 0.7,
+    key: how === 'fired' ? { tone: 'down', label: 'Уволили' } : { tone: 'turn', label: 'Ушёл(ла) с работы' },
+    keyFor: [c.id],
   });
   if (how === 'fired') {
     c.mood = clamp(c.mood - 25, 0, 100);
@@ -252,6 +256,8 @@ export function weeklyReview(world: World): void {
           cause: `Высокая эффективность (${Math.round(j.performance)}), стаж ${Math.round(tenureDays)} дн., навык «${skillName(j.skill)}» ${Math.round(c.skills[j.skill])}`,
           changes: [`Новая зарплата: ${money(j.salary)}`, 'Репутация выросла'],
           importance: 0.75,
+          key: { tone: 'up', label: 'Повышение' },
+          keyFor: [c.id],
           relatedIds: [org.id],
         });
         remember(world, c, 'success', `Повышение до «${j.title}»`, 0.85, [org.id]);

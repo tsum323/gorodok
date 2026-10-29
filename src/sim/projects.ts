@@ -84,6 +84,7 @@ export function startProject(world: World, owner: Character, input: StartProject
     context: input.description,
     changes: ['Создан проект', 'Появились задачи: первая версия, первые пользователи'],
     importance: 0.75,
+    key: { tone: 'turn', label: 'Начал(а) свой проект' },
     relatedIds: [p.id, dec.id, ...(input.ideaId ? [input.ideaId] : [])],
   });
   projectHistory(p, world.time, `Проект создан: ${input.reason}`, ev.id);
@@ -142,6 +143,7 @@ function launchProject(world: World, p: Project): void {
     cause: 'Первая версия готова',
     changes: [`Первые пользователи: ${p.users}`, `Качество: ${Math.round(p.quality)}/100`],
     importance: 0.8,
+    key: { tone: 'up', label: 'Запуск проекта' },
     relatedIds: [p.id],
   });
   projectHistory(p, world.time, 'Запуск первой версии', ev.id);
@@ -191,12 +193,33 @@ export function dailyProjects(world: World): void {
           summary: `У «${p.name}» уже 50 активных пользователей`,
           cause: 'Качество продукта и усилия по продвижению',
           changes: [`Выручка всего: ${money(p.revenueTotal)}`],
-          importance: 0.6,
+          importance: 0.7,
+          key: { tone: 'up', label: 'Первый успех проекта' },
           relatedIds: [p.id],
         });
         projectHistory(p, world.time, '50 пользователей', ev.id);
         owner.reputation = clamp(owner.reputation + 5, 0, 100);
         owner.influence = clamp(owner.influence + 4, 0, 100);
+      }
+      if (p.users >= 200 && !p.history.some((h) => h.text.startsWith('200 пользователей'))) {
+        const ev = emit(world, {
+          type: 'project_milestone',
+          participants: p.memberIds,
+          summary: `«${p.name}» выстрелил: 200 активных пользователей`,
+          cause: 'Продукт нашёл свою аудиторию и растёт сам',
+          changes: [`Выручка всего: ${money(p.revenueTotal)}`, 'Репутация и влияние команды выросли'],
+          importance: 0.9,
+          relatedIds: [p.id],
+          key: { tone: 'up', label: 'Проект выстрелил' },
+        });
+        projectHistory(p, world.time, '200 пользователей — проект выстрелил', ev.id);
+        for (const id of p.memberIds) {
+          const m = world.characters[id];
+          if (!m) continue;
+          m.reputation = clamp(m.reputation + 8, 0, 100);
+          m.influence = clamp(m.influence + 8, 0, 100);
+          remember(world, m, 'success', `«${p.name}» выстрелил`, 0.95, [p.id]);
+        }
       }
       if (days > 25 && p.users < 6 && p.spent > p.revenueTotal) {
         failProject(world, p, 'за месяц после запуска продукт так и не нашёл пользователей');
@@ -228,7 +251,8 @@ export function failProject(world: World, p: Project, why: string): void {
     summary: `Проект «${p.name}» закрыт: ${why}`,
     cause: why,
     changes: [`Потрачено: ${money(p.spent)}, заработано: ${money(p.revenueTotal)}`],
-    importance: 0.75,
+    importance: 0.8,
+    key: { tone: 'down', label: 'Проект прогорел' },
     relatedIds: [p.id],
   });
   projectHistory(p, world.time, `Провал: ${why}`, ev.id);
@@ -244,7 +268,8 @@ export function abandonProject(world: World, p: Project, owner: Character, why: 
     summary: `${owner.name} забросил(а) проект «${p.name}»`,
     cause: why,
     changes: [`Прогресс остановился на ${Math.round(p.progress)}%`],
-    importance: 0.6,
+    importance: 0.65,
+    key: { tone: 'down', label: 'Проект заброшен' },
     relatedIds: [p.id],
   });
   projectHistory(p, world.time, `Заброшен: ${why}`, ev.id);

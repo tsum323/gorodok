@@ -1,4 +1,4 @@
-import type { Character, EventType, HistoryEntry, Memory, MemoryKind, World, WorldEvent } from './types';
+import type { Character, EventType, HistoryEntry, KeyMoment, Memory, MemoryKind, World, WorldEvent } from './types';
 import { nextId, pushCapped } from './util';
 
 // Единая система событий. Любое значимое изменение мира проходит через emit():
@@ -61,7 +61,13 @@ export interface EmitInput {
   dialogue?: WorldEvent['dialogue'];
   /** Не записывать в историю участников (для мелких событий). */
   noHistory?: boolean;
+  /** Ключевой момент — выделяется в ленте и в профиле. */
+  key?: KeyMoment;
+  /** Для кого это ключевой момент (по умолчанию — для всех участников). */
+  keyFor?: string[];
 }
+
+export const KEY_MOMENTS_CAP = 120;
 
 /** Колбэки для подписчиков (например, сохранение). Не сериализуются. */
 export function emit(world: World, input: EmitInput): WorldEvent {
@@ -81,12 +87,19 @@ export function emit(world: World, input: EmitInput): WorldEvent {
     relatedIds: input.relatedIds ?? [],
     dialogue: input.dialogue,
   };
+  if (input.key) ev.key = input.key;
   pushCapped(world.events, ev, RECENT_EVENTS_CAP);
   world.stats.eventsTotal++;
   if (!input.noHistory) {
     for (const pid of ev.participants) {
       const c = world.characters[pid];
       if (c) addHistory(c, { time: ev.time, text: ev.summary, eventId: ev.id, kind: 'event' });
+    }
+  }
+  if (input.key) {
+    for (const pid of input.keyFor ?? ev.participants) {
+      const c = world.characters[pid];
+      if (c) pushCapped(c.keyMoments, { ...input.key, time: ev.time, text: ev.summary, eventId: ev.id }, KEY_MOMENTS_CAP);
     }
   }
   return ev;

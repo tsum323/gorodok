@@ -127,6 +127,21 @@ export function dailyEconomy(world: World): void {
   for (const id of world.order) {
     const c = world.characters[id];
     const { shortfall } = payExternal(world, ch(c), monthlyExpenses(c) / 30);
+    if (c.debt > 0 && !c.counters.inDebt) {
+      // Переломный момент: денег не хватило впервые (из-за жизни, покупок или проекта).
+      c.counters.inDebt = 1;
+      c.counters.lastDebtNoticeDay = dayOf(world.time);
+      emit(world, {
+        type: 'financial',
+        participants: [c.id],
+        summary: `${c.name} залез(ла) в долги (${money(c.debt)})`,
+        cause: 'Сбережения закончились, а расходы продолжаются',
+        changes: [`Долг: ${money(c.debt)}`, 'Растут проценты и стресс'],
+        importance: 0.75,
+        key: { tone: 'down', label: 'Залез(ла) в долги' },
+      });
+      remember(world, c, 'failure', 'Залез(ла) в долги', 0.8);
+    }
     if (shortfall > 0) {
       c.stress = clamp(c.stress + 6, 0, 100);
       if ((c.counters.lastDebtNoticeDay ?? -99) < dayOf(world.time) - 7) {
@@ -150,13 +165,15 @@ export function dailyEconomy(world: World): void {
         const { paid } = payExternal(world, ch(c), pay);
         c.debt = Math.max(0, c.debt - paid);
         if (c.debt === 0) {
+          c.counters.inDebt = 0;
           emit(world, {
             type: 'financial',
             participants: [c.id],
             summary: `${c.name} полностью закрыл(а) долг`,
             cause: 'Регулярные выплаты из сбережений',
             changes: ['Долг погашен'],
-            importance: 0.5,
+            importance: 0.6,
+            key: { tone: 'up', label: 'Выбрался(ась) из долгов' },
           });
           remember(world, c, 'success', 'Закрыл(а) долг', 0.6);
         }
