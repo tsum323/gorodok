@@ -253,6 +253,37 @@ export class GameController {
     }
   }
 
+  /** Одинаковая правка сразу для нескольких идей (например, «в избранное»). */
+  async updateIdeas(ids: string[], patch: Partial<Pick<Idea, 'status' | 'userRating' | 'userNotes' | 'favorite'>>): Promise<void> {
+    await Promise.all(ids.map((id) => this.updateIdea(id, patch)));
+  }
+
+  /**
+   * Удаление идей пользователем. Сигнатуры удалённых идей текущего мира
+   * запоминаются, чтобы персонаж не придумал ту же идею заново.
+   */
+  async deleteIdeas(ids: string[]): Promise<void> {
+    const drop = new Set(ids);
+    for (const id of ids) {
+      const idea = this.world.ideas[id];
+      if (idea) {
+        if (!this.world.deletedIdeaSignatures.includes(idea.signature)) this.world.deletedIdeaSignatures.push(idea.signature);
+        delete this.world.ideas[id];
+      }
+      this.dirtyIdeas.delete(id);
+    }
+    this.pastIdeas = this.pastIdeas.filter((i) => !drop.has(i.id));
+    this.knownIdeaCount = Object.keys(this.world.ideas).length;
+    this.notify();
+    try {
+      await this.storage.deleteIdeas(ids);
+      await this.save();
+    } catch (e) {
+      this.error = `Не удалось удалить идеи: ${e instanceof Error ? e.message : e}`;
+      this.notify();
+    }
+  }
+
   // --- настройки и мир -----------------------------------------------------------
 
   renameAvatar(name: string): void {

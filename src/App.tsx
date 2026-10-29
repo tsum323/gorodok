@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useGame } from './app/useGame';
 import { TopBar } from './ui/TopBar';
 import { Scene } from './ui/Scene';
@@ -13,6 +13,10 @@ import { Portrait } from './ui/Sprite';
 import { sceneOf, getLocation } from './sim/locations';
 import { money } from './sim/util';
 import type { WorldEvent } from './sim/types';
+import { KeyBadge } from './ui/EventFeed';
+
+/** Сколько реальных секунд держится баннер ключевого момента над сценой. */
+const KEY_BANNER_MS = 8000;
 
 type MobileTab = 'scene' | 'feed' | 'people';
 
@@ -42,6 +46,33 @@ export function App() {
     setEvent(null);
   }, []);
 
+  // Баннер над сценой: показываем каждый новый ключевой момент (старые при загрузке — нет).
+  const lastKeySeq = useRef<number | null>(null);
+  const [banner, setBanner] = useState<WorldEvent | null>(null);
+  useEffect(() => {
+    let latest: WorldEvent | undefined;
+    for (let i = w.events.length - 1; i >= 0; i--) {
+      if (w.events[i].key) {
+        latest = w.events[i];
+        break;
+      }
+    }
+    const seq = latest?.seq ?? 0;
+    if (lastKeySeq.current === null) {
+      lastKeySeq.current = seq;
+      return;
+    }
+    if (latest && seq > lastKeySeq.current) {
+      lastKeySeq.current = seq;
+      setBanner(latest);
+    }
+  }, [version, w]);
+  useEffect(() => {
+    if (!banner) return;
+    const t = setTimeout(() => setBanner(null), KEY_BANNER_MS);
+    return () => clearTimeout(t);
+  }, [banner]);
+
   const latestIdea = Object.values(w.ideas).sort((a, b) => b.gameTime - a.gameTime)[0];
 
   return (
@@ -60,6 +91,12 @@ export function App() {
           <PeopleList onSelect={select} selectedId={selected} />
         </div>
         <div className="col col-scene">
+          {banner?.key && (
+            <button className={`key-banner key-${banner.key.tone}`} onClick={() => setEvent(banner)} title="Открыть подробности">
+              <KeyBadge tone={banner.key.tone} label={`Ключевой момент: ${banner.key.label}`} />
+              <span className="key-banner-text">{banner.summary}</span>
+            </button>
+          )}
           <Scene
             world={w}
             version={version}

@@ -4,10 +4,11 @@ import { EVENT_TYPES } from '../sim/events';
 import { formatShort } from '../sim/time';
 import type { WorldEvent } from '../sim/types';
 
-type FeedFilter = 'important' | 'all' | 'avatar' | 'career' | 'social' | 'ideas';
+type FeedFilter = 'important' | 'key' | 'all' | 'avatar' | 'career' | 'social' | 'ideas';
 
 const FILTERS: [FeedFilter, string][] = [
   ['important', 'Главное'],
+  ['key', '★ Ключевые'],
   ['avatar', 'Даня'],
   ['social', 'Люди'],
   ['career', 'Работа и деньги'],
@@ -22,7 +23,9 @@ const IDEAS = new Set(['idea', 'project_started', 'project_joined', 'project_lau
 export function matchesFilter(e: WorldEvent, f: FeedFilter): boolean {
   switch (f) {
     case 'important':
-      return e.importance >= 0.4 && EVENT_TYPES[e.type].feed;
+      return !!e.key || (e.importance >= 0.4 && EVENT_TYPES[e.type].feed);
+    case 'key':
+      return !!e.key;
     case 'avatar':
       return e.participants.includes('player_avatar') && e.importance >= 0.2;
     case 'career':
@@ -34,6 +37,16 @@ export function matchesFilter(e: WorldEvent, f: FeedFilter): boolean {
     default:
       return true;
   }
+}
+
+const KEY_ARROW = { up: '▲', down: '▼', turn: '◆' } as const;
+
+export function KeyBadge({ tone, label }: { tone: 'up' | 'down' | 'turn'; label: string }) {
+  return (
+    <span className={`key-badge key-badge-${tone}`}>
+      {KEY_ARROW[tone]} {label}
+    </span>
+  );
 }
 
 export function EventFeed({ onOpen, onSelect }: { onOpen: (e: WorldEvent) => void; onSelect: (id: string) => void }) {
@@ -61,10 +74,14 @@ export function EventFeed({ onOpen, onSelect }: { onOpen: (e: WorldEvent) => voi
         {list.map((e) => {
           const info = EVENT_TYPES[e.type];
           return (
-            <li key={e.id} className={`feed-item tone-${info.tone}${e.participants.includes('player_avatar') ? ' with-avatar' : ''}`}>
+            <li
+              key={e.id}
+              className={`feed-item tone-${info.tone}${e.participants.includes('player_avatar') ? ' with-avatar' : ''}${e.key ? ` key key-${e.key.tone}` : ''}`}
+            >
               <button className="feed-main" onClick={() => onOpen(e)}>
                 <span className="feed-icon" aria-hidden="true">{info.icon}</span>
                 <span className="feed-text">
+                  {e.key && <KeyBadge tone={e.key.tone} label={e.key.label} />}
                   <span className="feed-time">{formatShort(w.startDate, e.time)} · {info.label}</span>
                   <span className="feed-summary">{e.summary}</span>
                 </span>

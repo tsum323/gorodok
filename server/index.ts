@@ -101,6 +101,11 @@ async function api(req: IncomingMessage, res: ServerResponse, url: URL): Promise
   if (path === '/api/ideas' && method === 'GET') {
     return json(res, 200, { ideas: store.listIdeas({ q: url.searchParams.get('q') ?? undefined, status: url.searchParams.get('status') ?? undefined }) });
   }
+  if (path === '/api/ideas/delete' && method === 'POST') {
+    const body = JSON.parse(await readBody(req)) as { ids?: unknown };
+    if (!Array.isArray(body.ids) || !body.ids.every((x) => typeof x === 'string')) throw new HttpError(400, 'Нужен список ids');
+    return json(res, 200, { deleted: store.deleteIdeas(body.ids as string[]) });
+  }
   const ideaMatch = path.match(/^\/api\/ideas\/([^/]+)$/);
   if (ideaMatch && method === 'PUT') {
     const idea = JSON.parse(await readBody(req)) as Idea;

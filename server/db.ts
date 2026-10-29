@@ -171,6 +171,16 @@ export class Store {
       .run(idea.id, idea.worldId, idea.title, idea.status, idea.favorite ? 1 : 0, idea.userRating, idea.gameTime, idea.createdAt, idea.updatedAt, search, JSON.stringify(idea));
   }
 
+  /** Удаляет идеи по решению пользователя. Возвращает число удалённых. */
+  deleteIdeas(ids: string[]): number {
+    let n = 0;
+    this.tx(() => {
+      const del = this.db.prepare('DELETE FROM ideas WHERE id = ?');
+      for (const id of ids) n += Number(del.run(id).changes);
+    });
+    return n;
+  }
+
   getIdea(id: string): Idea | null {
     const r = this.db.prepare('SELECT data FROM ideas WHERE id = ?').get(id) as { data: string } | undefined;
     return r ? (JSON.parse(r.data) as Idea) : null;

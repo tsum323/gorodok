@@ -12,6 +12,7 @@ import { STATUS_LABELS } from '../archive/archive';
 import type { Character, SkillKey, TraitKey, WorldEvent } from '../sim/types';
 import { Meter, Tag } from './common';
 import { Sprite } from './Sprite';
+import { KeyBadge } from './EventFeed';
 
 const TRAIT_LABELS: Record<TraitKey, string> = {
   ambition: 'Амбициозность',
@@ -84,7 +85,7 @@ export function Profile({ id, onClose, onSelect, onOpenEvent, onArchive }: { id:
         ))}
       </nav>
       <div className="drawer-body">
-        {tab === 'overview' && <Overview c={c} />}
+        {tab === 'overview' && <Overview c={c} onOpenEvent={onOpenEvent} />}
         {tab === 'relations' && <Relations c={c} onSelect={onSelect} />}
         {tab === 'history' && <History c={c} onOpenEvent={onOpenEvent} />}
         {tab === 'decisions' && <Decisions c={c} onOpenEvent={onOpenEvent} />}
@@ -95,7 +96,35 @@ export function Profile({ id, onClose, onSelect, onOpenEvent, onArchive }: { id:
   );
 }
 
-function Overview({ c }: { c: Character }) {
+function KeyMoments({ c, onOpenEvent }: { c: Character; onOpenEvent: (e: WorldEvent) => void }) {
+  const { game } = useGame();
+  const w = game.world;
+  const list = (c.keyMoments ?? []).slice().reverse();
+  return (
+    <div className="card key-card">
+      <h3>★ Переломные моменты</h3>
+      {list.length === 0 && <p className="muted small">Пока жизнь идёт ровно — ни взлётов, ни падений.</p>}
+      <ol className="key-timeline">
+        {list.map((k) => {
+          const ev = w.events.find((e) => e.id === k.eventId);
+          return (
+            <li key={k.eventId} className={`key-item key-${k.tone}`}>
+              <button className="tl-item" onClick={() => ev && onOpenEvent(ev)} disabled={!ev}>
+                <span className="tl-time">{formatShort(w.startDate, k.time)}</span>
+                <span>
+                  <KeyBadge tone={k.tone} label={k.label} />
+                  <span className="block small">{k.text}</span>
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
+function Overview({ c, onOpenEvent }: { c: Character; onOpenEvent: (e: WorldEvent) => void }) {
   const { game } = useGame();
   const w = game.world;
   const org = c.job ? w.orgs[c.job.orgId] : undefined;
@@ -104,6 +133,7 @@ function Overview({ c }: { c: Character }) {
   return (
     <div className="stack">
       <p className="bio">{c.bio}</p>
+      <KeyMoments c={c} onOpenEvent={onOpenEvent} />
       <div className="grid2">
         <div className="card">
           <h3>Состояние</h3>
@@ -265,11 +295,14 @@ function History({ c, onOpenEvent }: { c: Character; onOpenEvent: (e: WorldEvent
       {full ? (
         <ol className="timeline">
           {full.map((e) => (
-            <li key={e.id}>
+            <li key={e.id} className={e.key ? `key-item key-${e.key.tone}` : undefined}>
               <button className="tl-item" onClick={() => onOpenEvent(e)}>
                 <span className="tl-time">{formatShort(w.startDate, e.time)}</span>
                 <span>
-                  {EVENT_TYPES[e.type].icon} {e.summary}
+                  {e.key && <KeyBadge tone={e.key.tone} label={e.key.label} />}
+                  <span className={e.key ? 'block' : undefined}>
+                    {EVENT_TYPES[e.type].icon} {e.summary}
+                  </span>
                 </span>
               </button>
             </li>
@@ -280,11 +313,15 @@ function History({ c, onOpenEvent }: { c: Character; onOpenEvent: (e: WorldEvent
         <ol className="timeline">
           {recent.map((h, i) => {
             const ev = findEvent(h.eventId);
+            const key = ev?.key ?? c.keyMoments?.find((k) => k.eventId === h.eventId);
             return (
-              <li key={i} className={`tl-${h.kind}`}>
+              <li key={i} className={`tl-${h.kind}${key ? ` key-item key-${key.tone}` : ''}`}>
                 <button className="tl-item" onClick={() => ev && onOpenEvent(ev)} disabled={!ev}>
                   <span className="tl-time">{formatShort(w.startDate, h.time)}</span>
-                  <span>{h.text}</span>
+                  <span>
+                    {key && <KeyBadge tone={key.tone} label={key.label} />}
+                    <span className={key ? 'block' : undefined}>{h.text}</span>
+                  </span>
                 </button>
               </li>
             );

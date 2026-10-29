@@ -20,6 +20,7 @@ export interface StorageAdapter {
   saveWorld(snapshot: string, events: WorldEvent[], ideas: Idea[]): Promise<void>;
   loadIdeas(): Promise<Idea[]>;
   saveIdea(idea: Idea): Promise<void>;
+  deleteIdeas(ids: string[]): Promise<void>;
   loadEvents(worldId: string, opts?: { characterId?: string; beforeSeq?: number; limit?: number }): Promise<WorldEvent[]>;
   resetWorld(): Promise<void>;
   exportSave(): Promise<SaveFile | null>;
@@ -58,6 +59,9 @@ export class SqliteServerStorage implements StorageAdapter {
   }
   async saveIdea(idea: Idea): Promise<void> {
     await req(`/api/ideas/${encodeURIComponent(idea.id)}`, { method: 'PUT', body: JSON.stringify(idea) });
+  }
+  async deleteIdeas(ids: string[]): Promise<void> {
+    await req('/api/ideas/delete', { method: 'POST', body: JSON.stringify({ ids }) });
   }
   async loadEvents(worldId: string, opts: { characterId?: string; beforeSeq?: number; limit?: number } = {}): Promise<WorldEvent[]> {
     const q = new URLSearchParams({ worldId, limit: String(opts.limit ?? 200) });
@@ -129,6 +133,10 @@ export class BrowserStorage implements StorageAdapter {
     if (i >= 0) all[i] = idea;
     else all.push(idea);
     writeKey(K_IDEAS, JSON.stringify(all));
+  }
+  async deleteIdeas(ids: string[]): Promise<void> {
+    const drop = new Set(ids);
+    writeKey(K_IDEAS, JSON.stringify(readJson<Idea[]>(K_IDEAS, []).filter((i) => !drop.has(i.id))));
   }
   async loadEvents(_worldId: string, opts: { characterId?: string; beforeSeq?: number; limit?: number } = {}): Promise<WorldEvent[]> {
     let all = readJson<WorldEvent[]>(K_EVENTS, []);
